@@ -1,0 +1,14 @@
+{
+  "name": "foosball-online",
+  "version": "1.0.0",
+  "private": true,
+  "description": "双人桌上足球：网页 + WebSocket 联机中转，一个 Node.js 进程搞定",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {}
+}

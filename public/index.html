@@ -1,0 +1,1235 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1f160f">
+<title>双人桌上足球</title>
+<!-- 字体是锦上添花：异步加载，连不上 Google Fonts（比如在国内）也不会卡住页面，会退回系统字体 -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Noto+Sans+SC:wght@400;500;700&family=ZCOOL+QingKe+HuangYou&display=swap" media="print" onload="this.media='all'">
+<style>
+html,body{margin:0;height:auto}
+html{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*,*::before,*::after{box-sizing:border-box}
+/* Layout: one column. Scoreboard plaque, the table itself as the hero, a control panel underneath.
+   World: a walnut pub table under warm light, brass trim. One deliberate dark look. */
+:root{
+  --room:#1f160f;
+  --room-2:#271b12;
+  --panel:#2f2218;
+  --panel-2:#3b2b1e;
+  --line:#5b4431;
+  --text:#f3e7d2;
+  --muted:#bda98b;
+  --brass:#e3b04f;
+  --brass-hi:#f6cf7c;
+  --brass-ink:#2b1b07;
+  --red:#e2513a;
+  --blue:#4486e6;
+  --ok:#86c98a;
+  --warn:#f0a35a;
+  --f-display:"ZCOOL QingKe HuangYou","Noto Sans SC",system-ui,sans-serif;
+  --f-num:"Bungee","Impact","Arial Black",system-ui,sans-serif;
+  --f-body:"Noto Sans SC",system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{background:var(--room);color:var(--text)}
+body{
+  font-family:var(--f-body);font-size:15px;line-height:1.6;
+  background:
+    repeating-linear-gradient(93deg,rgba(255,255,255,.012) 0 2px,transparent 2px 9px),
+    radial-gradient(1200px 600px at 50% -10%,var(--room-2),var(--room));
+  min-height:100%;
+}
+.app{
+  max-width:1120px;margin:0 auto;
+  padding-block:18px 48px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:14px;
+}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:8px 16px}
+h1{font-family:var(--f-display);font-weight:400;font-size:clamp(30px,5vw,44px);line-height:1;margin:0;letter-spacing:.04em;color:var(--brass-hi);text-wrap:balance}
+h1 small{display:block;font-family:var(--f-body);font-size:13px;letter-spacing:.02em;color:var(--muted);margin-top:8px;font-weight:400}
+.chip{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:4px 12px;background:var(--panel)}
+.chip i{width:8px;height:8px;border-radius:50%;background:var(--muted);flex:none}
+.chip.on i{background:var(--ok);box-shadow:0 0 0 3px rgba(134,201,138,.18)}
+.chip.off i{background:var(--warn)}
+
+.board{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px;
+  background:linear-gradient(180deg,var(--panel-2),var(--panel));border:1px solid var(--line);border-radius:12px;padding:10px 16px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
+.board.flip .team.red{order:3;justify-content:flex-end;text-align:right}
+.board.flip .team.blue{order:1;justify-content:flex-start;text-align:left}
+.board.flip .score{order:2;flex-direction:row-reverse}
+.team{display:flex;align-items:center;gap:10px;min-width:0}
+.team.blue{justify-content:flex-end;text-align:right}
+.team .dot{width:14px;height:14px;border-radius:50%;flex:none;box-shadow:inset 0 -2px 0 rgba(0,0,0,.3)}
+.team.red .dot{background:var(--red)}
+.team.blue .dot{background:var(--blue)}
+.team .nm{font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.team .you{font-size:11px;letter-spacing:.08em;border-radius:4px;padding:1px 6px;background:var(--brass);color:var(--brass-ink);font-weight:700;flex:none}
+.team.blue .order-fix{order:-1}
+.score{display:flex;align-items:center;gap:10px;font-family:var(--f-num);font-size:clamp(30px,6vw,46px);line-height:1;font-variant-numeric:tabular-nums}
+.score .r{color:var(--red)}
+.score .b{color:var(--blue)}
+.score .colon{color:var(--brass);font-size:.7em}
+.ping{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+
+.stage{position:relative;display:flex;justify-content:center;align-items:center;min-height:200px}
+canvas{display:block;max-width:100%;border-radius:20px;outline:none}
+canvas.play{touch-action:none;cursor:crosshair}
+.overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;padding:16px}
+.card{pointer-events:auto;background:rgba(26,18,12,.9);border:1px solid var(--line);border-radius:14px;padding:18px 22px;text-align:center;max-width:380px;
+  box-shadow:0 18px 40px rgba(0,0,0,.45);display:flex;flex-direction:column;gap:10px;align-items:center}
+.card h3{margin:0;font-family:var(--f-display);font-weight:400;font-size:30px;letter-spacing:.05em;line-height:1.1}
+.card p{margin:0;color:var(--muted);font-size:14px}
+.card .code{font-family:var(--f-num);font-size:44px;letter-spacing:.12em;color:var(--brass-hi);line-height:1}
+.card.goal{background:transparent;border:none;box-shadow:none;pointer-events:none}
+.card.goal h3{font-size:clamp(40px,8vw,72px);text-shadow:0 4px 0 rgba(0,0,0,.35),0 0 30px rgba(0,0,0,.4)}
+.c-red{color:var(--red)} .c-blue{color:var(--blue)}
+.tag{position:absolute;left:14px;top:12px;font-size:12px;letter-spacing:.1em;color:var(--brass-ink);background:var(--brass);border-radius:4px;padding:2px 8px;font-weight:700;pointer-events:none}
+
+button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:var(--panel-2);color:var(--text);padding:9px 16px;font-weight:500;transition:background .15s,border-color .15s,transform .05s}
+button:hover{border-color:var(--brass)}
+button:active{transform:translateY(1px)}
+button:focus-visible,input:focus-visible,summary:focus-visible,canvas:focus-visible{outline:2px solid var(--brass-hi);outline-offset:2px}
+button.primary{background:var(--brass);border-color:var(--brass);color:var(--brass-ink);font-weight:700}
+button.primary:hover{background:var(--brass-hi)}
+button:disabled{opacity:.45;cursor:not-allowed}
+input{font:inherit;color:var(--text);background:var(--room);border:1px solid var(--line);border-radius:8px;padding:8px 12px;min-width:0}
+input::placeholder{color:var(--muted);opacity:.7}
+
+.panel{display:flex;flex-direction:column;gap:14px}
+.nickrow{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.nickrow label{color:var(--muted);font-size:14px}
+.nickrow input{width:180px}
+.modes{display:grid;grid-template-columns:1.35fr 1fr 1fr;gap:12px}
+@media (max-width:860px){.modes{grid-template-columns:1fr 1fr}.mode.online{grid-column:1/-1}}
+@media (max-width:560px){.modes{grid-template-columns:1fr}}
+.mode{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.mode.online{border-color:rgba(227,176,79,.55);background:linear-gradient(180deg,rgba(227,176,79,.08),transparent 60%),var(--panel)}
+.mode h2{margin:0;font-family:var(--f-display);font-weight:400;font-size:24px;letter-spacing:.04em;color:var(--text)}
+.mode p{margin:0;color:var(--muted);font-size:14px}
+.mode .grow{flex:1}
+.rooms{display:flex;flex-direction:column;gap:6px}
+.roomrow{display:flex;align-items:center;gap:10px;background:var(--room);border:1px solid var(--line);border-radius:8px;padding:6px 6px 6px 12px}
+.roomrow .rc{font-family:var(--f-num);color:var(--brass-hi);letter-spacing:.08em;flex:none}
+.roomrow .rn{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px}
+.roomrow button{padding:5px 12px;font-size:13px}
+.empty{font-size:13px;color:var(--muted);border:1px dashed var(--line);border-radius:8px;padding:8px 12px}
+.joinrow{display:flex;gap:8px}
+.joinrow input{flex:1;text-transform:uppercase;letter-spacing:.15em;font-family:var(--f-num);font-size:16px}
+.seg{display:flex;gap:0;border:1px solid var(--line);border-radius:8px;overflow:hidden;align-self:flex-start}
+.seg button{border:none;border-radius:0;background:transparent;padding:6px 14px;font-size:13px}
+.seg button[aria-pressed="true"]{background:var(--brass);color:var(--brass-ink);font-weight:700}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+details.rules{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 16px}
+details.rules summary{cursor:pointer;font-weight:700}
+details.rules ul{margin:10px 0 0;padding-left:20px;color:var(--muted);font-size:14px;display:grid;gap:4px}
+details.rules b{color:var(--text);font-weight:500}
+kbd{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;background:var(--room);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;color:var(--text)}
+
+.ingame{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:center;justify-content:space-between;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 16px}
+.help{color:var(--muted);font-size:14px;flex:1 1 360px;min-width:0}
+.help b{color:var(--text);font-weight:500}
+.touchbar{display:flex;gap:12px}
+.touchbar button{flex:1;padding:16px;font-size:17px;border-radius:12px;user-select:none;-webkit-user-select:none;touch-action:none}
+.touchbar #tKick{background:var(--brass);border-color:var(--brass);color:var(--brass-ink);font-weight:700}
+.touchbar button.held{background:var(--panel);border-color:var(--brass);color:var(--text)}
+@media (prefers-reduced-motion:reduce){button{transition:none}}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <header>
+    <h1>双人桌上足球<small>先进 5 球获胜 · 可以和朋友远程实时对战</small></h1>
+    <span class="chip" id="netChip"><i></i><span id="netText">正在连接联机服务器…</span></span>
+  </header>
+
+  <div class="board" id="board">
+    <div class="team red"><span class="dot"></span><span class="nm" id="nmR">电脑</span><span class="you" id="youR" hidden>你</span></div>
+    <div class="score"><span class="r" id="scR">0</span><span class="colon">:</span><span class="b" id="scB">0</span></div>
+    <div class="team blue"><span class="you order-fix" id="youB" hidden>你</span><span class="nm" id="nmB">电脑</span><span class="dot"></span></div>
+  </div>
+
+  <div class="stage" id="stage">
+    <canvas id="cv" tabindex="0" aria-label="桌上足球球桌"></canvas>
+    <div class="tag" id="demoTag">演示</div>
+    <div class="overlay" id="overlay"></div>
+  </div>
+
+  <div class="touchbar" id="touchbar" hidden>
+    <button id="tLift" type="button">按住抬杆</button>
+    <button id="tKick" type="button">按住蓄力 · 松开射门</button>
+  </div>
+
+  <section class="panel" id="lobby">
+    <div class="nickrow">
+      <label for="nick">你的名字</label>
+      <input id="nick" maxlength="12" autocomplete="off">
+    </div>
+    <div class="modes">
+      <article class="mode online">
+        <h2>和朋友联机</h2>
+        <p id="onlineHint">把这个网址发给朋友，两人同时打开。一人开房间，另一人在下面的列表里点「加入」。</p>
+        <div class="row"><button class="primary" id="btnHost" type="button" disabled>开一个房间</button></div>
+        <div class="rooms" id="roomList"><div class="empty">正在查看有没有开着的房间…</div></div>
+        <form class="joinrow" id="joinForm">
+          <input id="codeIn" maxlength="4" placeholder="房间码" autocomplete="off" aria-label="房间码">
+          <button type="submit" id="btnJoin" disabled>用房间码加入</button>
+        </form>
+      </article>
+      <article class="mode">
+        <h2>对电脑练习</h2>
+        <p class="grow">你是红队，从左往右进攻。熟悉一下蓄力射门和压球的手感。</p>
+        <div class="seg" role="group" aria-label="电脑难度">
+          <button type="button" data-lv="easy" aria-pressed="true">新手</button>
+          <button type="button" data-lv="hard" aria-pressed="false">老手</button>
+        </div>
+        <div class="row"><button type="button" id="btnCpu">开始</button></div>
+      </article>
+      <article class="mode">
+        <h2>同屏双人</h2>
+        <p class="grow">一台电脑、一个键盘。红队用 <kbd>W</kbd><kbd>S</kbd> 和 <kbd>空格</kbd>，蓝队用 <kbd>↑</kbd><kbd>↓</kbd> 和 <kbd>回车</kbd>。</p>
+        <div class="row"><button type="button" id="btnLocal">开始</button></div>
+      </article>
+    </div>
+    <details class="rules">
+      <summary>怎么玩</summary>
+      <ul>
+        <li>每队 4 根杆：守门员 1 人、后卫 2 人、中场 5 人、前锋 3 人。你的 4 根杆连在一起，一起上下移动。</li>
+        <li><b>移动</b>：鼠标在球桌上上下移动，或 <kbd>W</kbd>/<kbd>S</kbd>、<kbd>↑</kbd>/<kbd>↓</kbd>。手机上直接在球桌上拖动。</li>
+        <li><b>射门</b>：按住鼠标左键、<kbd>空格</kbd> 或 <kbd>J</kbd> 蓄力，松开射出。按得越久越有力，最长约 0.35 秒蓄满。手机上轻点球桌是轻射，按住「蓄力」按钮再松开是重射。</li>
+        <li><b>压球</b>：蓄力时球员向后仰，迎面来的球会被压在脚下；这时上下移动可以带着球横移，找好角度再松开射门。</li>
+        <li><b>停球</b>：慢球碰到不动的球员会自然停下；快球会弹开。射门时一边横移一边踢，可以打出斜线。</li>
+        <li><b>抬杆</b>：按住鼠标右键、<kbd>Shift</kbd> 或 <kbd>K</kbd>，球员脚抬起来，球能从下面过去。抬着杆蓄力再射，力量更大。</li>
+        <li>球停在谁都够不着的地方 2 秒，或者一方控球超过 15 秒，会重新发球。</li>
+      </ul>
+    </details>
+  </section>
+
+  <section class="ingame" id="ingame" hidden>
+    <div class="help" id="help"></div>
+    <div class="row">
+      <span class="ping" id="ping" hidden></span>
+      <button type="button" id="btnRematch" hidden>再来一局</button>
+      <button type="button" id="btnSound">音效：开</button>
+      <button type="button" id="btnLeave">返回大厅</button>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+'use strict';
+// ================= geometry & tuning =================
+const W = 1000, H = 600, BR = 10, FR = 11, LEG = 30, GOAL = 92, F = 36, HM = 30, WIN = 5;
+const DT = 1 / 480;                 // physics substep: at top speed the ball moves < half a contact radius per step
+const ROD_V = 6;                    // rod travel, full range per second
+const PW_MIN = 24, PW_MAX = 56;     // swing speed of a kick, rad/s
+const VMAX = 3200;                  // ball speed cap, px/s
+const ROLL = 140, DRAG = 0.12;      // rolling resistance (px/s²) and a little air drag (1/s)
+const SLOPE = 420, SLOPE_W = 26;    // the dished edges near the rails
+const HN = 128;                     // host rewind history (~267 ms)
+const CONTACT_COS = (LEG - 2 * BR) / LEG; // below this the foot is lifted above the ball
+const RODS = [
+  [0, 1, 0, 150], [0, 2, 230, 160], [1, 3, 180, 100], [0, 5, 118, 44],
+  [1, 5, 118, 44], [0, 3, 180, 100], [1, 2, 230, 160], [1, 1, 0, 150]
+].map(([side, n, sp, range], i) => ({ side, n, sp, range, x: W * (i + 0.5) / 8, dir: side === 0 ? 1 : -1 }));
+const TEAM = [
+  { name: '红队', col: '#dc4630', dark: '#8f2516', hi: '#f27a63' },
+  { name: '蓝队', col: '#3577da', dark: '#1b3f88', hi: '#6ea2f0' }
+];
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const appr = (v, t, d) => v < t ? Math.min(t, v + d) : Math.max(t, v - d);
+const r1 = v => Math.round(v * 10) / 10, r3 = v => Math.round(v * 1000) / 1000;
+const num = (v, d = 0, a = -1e9, b = 1e9) => (typeof v === 'number' && isFinite(v)) ? clamp(v, a, b) : d;
+const str = (v, n = 12) => typeof v === 'string' ? v.slice(0, n) : '';
+const figY = (rod, cur, i) => H / 2 + (i - (rod.n - 1) / 2) * rod.sp + cur * rod.range;
+const rnd = seed => { const x = Math.sin(seed * 12.9898 + 78.233) * 43758.5453; return x - Math.floor(x); };
+const powerOf = hold => PW_MIN + (PW_MAX - PW_MIN) * clamp((hold - 0.03) / 0.32, 0, 1);
+const CODE_RE = /^[A-Z0-9]{4}$/;
+
+// ================= simulation state =================
+// mode: 0 idle/returning, 1 winding (leaning back, traps the ball), 2 swinging
+function newSide() { return { s: 0, cur: 0, vc: 0, a: 0, w: 0, mode: 0, pw: 0, lift: false, wind: false, rel: 0, kc: 0, kp: 0 }; }
+function copySide(d, s) {
+  d.s = s.s; d.cur = s.cur; d.vc = s.vc; d.a = s.a; d.w = s.w; d.mode = s.mode; d.pw = s.pw;
+  d.lift = s.lift; d.wind = s.wind; d.rel = s.rel; d.kc = s.kc; d.kp = s.kp;
+}
+function newSim(ph = 'serve') {
+  return { b: { x: W / 2, y: BR + 2, vx: 0, vy: 0 }, sd: [newSide(), newSide()], sc: [0, 0], ph, pt: 1.1, srv: 0,
+           slow: 0, hold: 0, hit: 0, hitE: 0, last: -1, win: -1, tn: [0, 0] };
+}
+function copySim(d, s) {
+  d.b.x = s.b.x; d.b.y = s.b.y; d.b.vx = s.b.vx; d.b.vy = s.b.vy;
+  copySide(d.sd[0], s.sd[0]); copySide(d.sd[1], s.sd[1]);
+  d.sc[0] = s.sc[0]; d.sc[1] = s.sc[1]; d.ph = s.ph; d.pt = s.pt; d.srv = s.srv; d.slow = s.slow; d.hold = s.hold;
+  d.hit = s.hit; d.hitE = s.hitE; d.last = s.last; d.win = s.win; d.tn[0] = s.tn[0]; d.tn[1] = s.tn[1];
+  return d;
+}
+
+function stepSide(st, dt) {
+  const p = st.cur;
+  st.cur += clamp(st.s - st.cur, -ROD_V * dt, ROD_V * dt);
+  st.vc = (st.cur - p) / dt;
+  const ap = st.a;
+  if (st.rel > 0) {
+    st.pw = st.rel * (st.a < -1.0 ? 1.15 : 1); // a swing that starts from a lifted rod has more run-up
+    st.kp = st.rel; st.rel = 0; st.mode = 2; st.kc++;
+  }
+  if (st.mode === 2) { st.a += st.pw * dt; if (st.a >= 1.3) { st.a = 1.3; st.mode = 0; } }
+  else if (st.wind) { st.mode = 1; st.a = appr(st.a, st.lift ? -1.45 : -0.85, 13 * dt); }
+  else { st.mode = 0; st.a = appr(st.a, st.lift ? -1.45 : 0, (st.lift ? 14 : 9) * dt); }
+  st.w = (st.a - ap) / dt;
+}
+
+// ---------- ball vs players ----------
+// A player's leg is a capsule: the stretch of leg low enough to touch the ball, projected onto the table.
+function figures(sim, frozen, xOnly) {
+  const b = sim.b, R = BR + FR, RP = R + 1.5;
+  for (const rod of RODS) {
+    if (Math.abs(b.x - rod.x) > LEG + RP) continue;
+    const st = sim.sd[rod.side], ca = Math.cos(st.a);
+    if (ca < CONTACT_COS) continue;
+    const sa = Math.sin(st.a), dir = rod.dir;
+    const lmin = Math.min(LEG, (LEG - 2 * BR) / ca);
+    const xa = rod.x + dir * sa * lmin, xb = rod.x + dir * sa * LEG;
+    const px = clamp(b.x, Math.min(xa, xb), Math.max(xa, xb));
+    for (let i = 0; i < rod.n; i++) {
+      const py = figY(rod, st.cur, i);
+      const dx = b.x - px, dy = b.y - py, d2 = dx * dx + dy * dy;
+      if (d2 >= RP * RP) continue;
+      const ell = Math.abs(sa) > 0.03 ? clamp((px - rod.x) / (dir * sa), lmin, LEG) : LEG;
+      const vfx = frozen ? 0 : clamp(dir * ca * ell * st.w, -2400, 2400);
+      const vfy = frozen ? 0 : clamp(st.vc * rod.range, -1400, 1400);
+      if (d2 < R * R) {
+        if (xOnly) {
+          // squeezed against a rail: the only way out is sideways along x
+          const sg = dx > 0 ? 1 : dx < 0 ? -1 : dir;
+          b.x = px + sg * Math.sqrt(Math.max(0, R * R - dy * dy));
+          if ((b.vx - vfx) * sg < 0) b.vx = vfx;
+          continue;
+        }
+        let d = Math.sqrt(d2), nx, ny;
+        if (d < 1e-4) { nx = dir; ny = 0; } else { nx = dx / d; ny = dy / d; }
+        b.x = px + nx * R; b.y = py + ny * R;
+        const rvx = b.vx - vfx, rvy = b.vy - vfy, vn = rvx * nx + rvy * ny;
+        if (vn < 0) {
+          const s = -vn;
+          let e, mu;
+          if (st.mode === 1) { e = 0.03; mu = 0.9; }                 // leaning back: trap
+          else if (st.mode === 2) { e = 0.55; mu = 0.35; }           // kicking
+          else {                                                     // standing: slow balls die, fast ones bounce
+            e = s < 150 ? 0.06 : s < 800 ? 0.06 + 0.46 * (s - 150) / 650 : Math.max(0.36, 0.52 - (s - 800) / 10000);
+            mu = 0.3;
+          }
+          const jn = (1 + e) * s, tx = -ny, ty = nx, vt = rvx * tx + rvy * ty;
+          const jt = clamp(-vt, -mu * jn, mu * jn);                  // friction carries the rod's sideways motion into the ball
+          b.vx += jn * nx + jt * tx; b.vy += jn * ny + jt * ty;
+          if (s > 160) { sim.hit++; sim.hitE = s; }
+          sim.tn[rod.side]++;
+        }
+      }
+      if (st.mode === 1 && !frozen && !xOnly) {
+        // pinned under a leaning foot: the ball travels with the rod
+        if (Math.hypot(b.vx - vfx, b.vy - vfy) < 450) {
+          const k = Math.min(1, 25 * DT);
+          b.vx += (vfx - b.vx) * k; b.vy += (vfy - b.vy) * k;
+          sim.tn[rod.side]++;
+        }
+      }
+    }
+  }
+}
+// ---------- ball vs table ----------
+const wallE = s => 0.75 - 0.15 * Math.min(1, s / 2500);
+function post(sim, px, py) {
+  const b = sim.b, R = BR + 4, dx = b.x - px, dy = b.y - py, d2 = dx * dx + dy * dy;
+  if (d2 >= R * R || d2 < 1e-8) return;
+  const d = Math.sqrt(d2), nx = dx / d, ny = dy / d;
+  b.x = px + nx * R; b.y = py + ny * R;
+  const vn = b.vx * nx + b.vy * ny;
+  if (vn < 0) { b.vx -= 1.7 * vn * nx; b.vy -= 1.7 * vn * ny; if (-vn > 200) { sim.hit++; sim.hitE = -vn; } }
+}
+function walls(sim) {
+  const b = sim.b;
+  if (b.y < BR) { b.y = BR; if (b.vy < 0) { const s = -b.vy; if (s > 260) { sim.hit++; sim.hitE = s * .6; } b.vy = s * wallE(s); b.vx *= 0.97; } }
+  if (b.y > H - BR) { b.y = H - BR; if (b.vy > 0) { const s = b.vy; if (s > 260) { sim.hit++; sim.hitE = s * .6; } b.vy = -s * wallE(s); b.vx *= 0.97; } }
+  post(sim, 0, H / 2 - GOAL); post(sim, 0, H / 2 + GOAL); post(sim, W, H / 2 - GOAL); post(sim, W, H / 2 + GOAL);
+  if (Math.abs(b.y - H / 2) > GOAL) {
+    if (b.x < BR) { b.x = BR; if (b.vx < 0) { const s = -b.vx; b.vx = s * wallE(s); b.vy *= 0.97; } }
+    if (b.x > W - BR) { b.x = W - BR; if (b.vx > 0) { const s = b.vx; b.vx = -s * wallE(s); b.vy *= 0.97; } }
+  } else if (b.x < 0 || b.x > W) {
+    if (b.y < H / 2 - GOAL + BR) { b.y = H / 2 - GOAL + BR; b.vy = Math.abs(b.vy) * .6; }
+    if (b.y > H / 2 + GOAL - BR) { b.y = H / 2 + GOAL - BR; b.vy = -Math.abs(b.vy) * .6; }
+  }
+}
+// returns the side that scored, or -1
+function stepBall(sim, dt, frozen) {
+  const b = sim.b;
+  // dished edges and corners push a resting ball back into play
+  const rt = Math.max(0, 1 - (b.y - BR) / SLOPE_W), rb = Math.max(0, 1 - (H - BR - b.y) / SLOPE_W);
+  let ax = 0, ay = SLOPE * (rt - rb);
+  if (Math.abs(b.y - H / 2) > GOAL) {
+    const rl = Math.max(0, 1 - (b.x - BR) / SLOPE_W), rr = Math.max(0, 1 - (W - BR - b.x) / SLOPE_W);
+    ax = SLOPE * (rl - rr);
+    if ((rl > 0 || rr > 0) && (rt > 0 || rb > 0)) { ax *= 1.6; ay *= 1.6; }
+  }
+  b.vx += ax * dt; b.vy += ay * dt;
+  // rolling: near-constant deceleration, so slow balls stop decisively
+  let sp = Math.hypot(b.vx, b.vy);
+  if (sp > 0) { const ns = Math.max(0, sp - (ROLL + DRAG * sp) * dt); b.vx *= ns / sp; b.vy *= ns / sp; }
+  b.x += b.vx * dt; b.y += b.vy * dt;
+  // resolve players and rails together, rails last so the ball never leaves the table
+  for (let it = 0; it < 3; it++) { figures(sim, frozen, false); walls(sim); }
+  figures(sim, frozen, true); walls(sim);
+  sp = Math.hypot(b.vx, b.vy);
+  if (sp > VMAX) { b.vx *= VMAX / sp; b.vy *= VMAX / sp; }
+  if (b.x < -BR * 1.2) return 1;
+  if (b.x > W + BR * 1.2) return 0;
+  return -1;
+}
+function reachable(b) {
+  for (const rod of RODS) {
+    if (Math.abs(b.x - rod.x) > 49) continue;
+    for (let i = 0; i < rod.n; i++) {
+      const base = H / 2 + (i - (rod.n - 1) / 2) * rod.sp, m = rod.range + FR + BR;
+      if (b.y >= base - m && b.y <= base + m) return true;
+    }
+  }
+  return false;
+}
+const serveY = sim => sim.srv % 2 === 0 ? BR + 2 : H - BR - 2;
+function serve(sim) {
+  const top = sim.srv % 2 === 0, k = sim.srv * 3 + sim.sc[0] * 7 + sim.sc[1] * 13;
+  sim.srv++;
+  sim.b.x = W / 2 + (rnd(k) - .5) * 16; sim.b.y = top ? BR + 2 : H - BR - 2;
+  sim.b.vx = (rnd(k + 1) - .5) * 160; sim.b.vy = (top ? 1 : -1) * (360 + rnd(k + 2) * 160);
+  sim.ph = 'play'; sim.slow = 0; sim.hold = 0;
+}
+function stepSim(sim, dt) {
+  stepSide(sim.sd[0], dt); stepSide(sim.sd[1], dt);
+  const b = sim.b;
+  if (sim.ph === 'wait') { b.x = W / 2; b.y = H / 2; b.vx = b.vy = 0; return; }
+  if (sim.ph === 'serve') {
+    sim.pt -= dt; b.x = W / 2; b.y = serveY(sim); b.vx = b.vy = 0;
+    if (sim.pt <= 0) serve(sim);
+    return;
+  }
+  if (sim.ph === 'goal') {
+    sim.pt -= dt;
+    b.x += b.vx * dt; b.y += b.vy * dt; b.vx *= 0.985; b.vy *= 0.985;
+    b.x = clamp(b.x, -F + BR + 4, W + F - BR - 4); b.y = clamp(b.y, H / 2 - GOAL + BR, H / 2 + GOAL - BR);
+    if (sim.pt <= 0) {
+      if (sim.sc[0] >= WIN || sim.sc[1] >= WIN) { sim.ph = 'over'; sim.win = sim.sc[0] >= WIN ? 0 : 1; }
+      else { sim.ph = 'serve'; sim.pt = 0.9; }
+    }
+    return;
+  }
+  if (sim.ph !== 'play') return;
+  const g = stepBall(sim, dt, false);
+  if (g >= 0) { sim.sc[g]++; sim.last = g; sim.ph = 'goal'; sim.pt = 1.5; return; }
+  const sp = Math.hypot(b.vx, b.vy);
+  if (sp < 400 && reachable(b)) { sim.hold += dt; sim.slow = 0; }
+  else if (sp < 30) { sim.slow += dt; sim.hold = 0; }
+  else { sim.slow = 0; sim.hold = 0; }
+  if (sim.slow > 2 || sim.hold > 15) { sim.ph = 'serve'; sim.pt = 0.6; sim.slow = sim.hold = 0; }
+}
+
+// ================= computer player =================
+function makeAI(lv) {
+  const P = { easy: [1.9, 24, 0.13, 0.55, 28, 40, 0], hard: [3.4, 6, 0.05, 0.32, 44, 56, 0.6], demo: [2.4, 14, 0.09, 0.4, 32, 50, 0.3] }[lv];
+  return { s: 0, tgt: 0, re: 0, kc: 0, rod: null, fi: 0, rate: P[0], noise: P[1], react: P[2], cool: P[3], pmin: P[4], pmax: P[5], trap: P[6], trapT: 0 };
+}
+function aiStep(ai, sim, side, dt) {
+  const b = sim.b, st = sim.sd[side], dir = side === 0 ? 1 : -1;
+  ai.re -= dt; ai.kc -= dt;
+  if (ai.re <= 0) {
+    ai.re = ai.react;
+    const mine = RODS.filter(r => r.side === side);
+    const behind = mine.filter(r => (b.x - r.x) * dir >= -8);
+    const rod = behind.length ? behind.reduce((m, r) => r.x * dir > m.x * dir ? r : m)
+                              : mine.reduce((m, r) => r.x * dir < m.x * dir ? r : m);
+    let t = 0;
+    if ((rod.x - b.x) * b.vx > 0) t = clamp(Math.abs(rod.x - b.x) / Math.max(120, Math.abs(b.vx)), 0, 0.5);
+    let py = b.y + b.vy * t;
+    for (let k = 0; k < 3; k++) { if (py < BR) py = 2 * BR - py; if (py > H - BR) py = 2 * (H - BR) - py; }
+    py += (Math.random() - .5) * 2 * ai.noise;
+    let best = 1e9;
+    for (let i = 0; i < rod.n; i++) {
+      const need = (py - (H / 2 + (i - (rod.n - 1) / 2) * rod.sp)) / rod.range;
+      const c = clamp(need, -1, 1);
+      const sc = Math.abs(need - c) * 10 + Math.abs(c - st.cur) * 0.3;
+      if (sc < best) { best = sc; ai.tgt = c; ai.rod = rod; ai.fi = i; }
+    }
+  }
+  ai.s = appr(ai.s, ai.tgt, ai.rate * dt);
+  st.s = ai.s; st.lift = false;
+  if (ai.trapT > 0) {
+    ai.trapT -= dt; st.wind = true;
+    if (ai.trapT <= 0) { st.wind = false; st.rel = ai.pmax; ai.kc = ai.cool; }
+    return;
+  }
+  st.wind = false;
+  if (ai.rod && ai.kc <= 0 && sim.ph === 'play') {
+    const r = ai.rod, fy = figY(r, st.cur, ai.fi), front = (b.x - r.x) * dir;
+    if (front > -6 && front < LEG + BR + FR && Math.abs(b.y - fy) < FR + BR + 2) {
+      if (ai.trap && Math.hypot(b.vx, b.vy) < 300 && Math.random() < ai.trap) { ai.trapT = 0.22 + Math.random() * 0.25; st.wind = true; }
+      else { st.rel = ai.pmin + Math.random() * (ai.pmax - ai.pmin); ai.kc = ai.cool; }
+    }
+  }
+}
+
+// ================= DOM =================
+const $ = id => document.getElementById(id);
+const cv = $('cv'), ctx = cv.getContext('2d'), stage = $('stage'), overlay = $('overlay');
+const coarse = !!(window.matchMedia && matchMedia('(pointer: coarse)').matches);
+
+let nick = '';
+try { nick = str(localStorage.getItem('fb-nick') || ''); } catch (e) {}
+if (!nick) nick = '球友' + Math.floor(10 + Math.random() * 90);
+$('nick').value = nick;
+$('nick').addEventListener('input', e => {
+  nick = str(e.target.value.trim()) || '球友';
+  try { localStorage.setItem('fb-nick', nick); } catch (err) {}
+  pres.nick = nick; dirty = true;
+});
+let level = 'easy';
+document.querySelectorAll('.seg button').forEach(bt => bt.addEventListener('click', () => {
+  level = bt.dataset.lv;
+  document.querySelectorAll('.seg button').forEach(x => x.setAttribute('aria-pressed', String(x === bt)));
+}));
+
+// ================= app state =================
+let mode = 'demo';             // demo | cpu | local | host | guest
+let sim = newSim();
+let ais = [makeAI('demo'), makeAI('demo')];
+let acc = 0, demoRestart = 0;
+const ctl = [{ s: 0, lift: false, wind: false }, { s: 0, lift: false, wind: false }];
+const windT = [0, 0];
+const dispOff = { x: 0, y: 0 };    // host: smooths the jump after a rewind
+
+// online
+let room, peers = [], myPeer = null, connected = false, discSince = 0;
+let pres = { nick, code: null, role: null, st: null, inp: null };
+let dirty = true, lastPres = 0, code = null, stN = 0;
+// host
+const hist = Array.from({ length: HN }, () => newSim());
+let hPos = 0, hCount = 0;
+let guestPeer = null, guestNick = '', guestSeen = 0, lastGK = 0, lastGRm = 0, lastGP = null, guestPing = 0, guestRtt = 0;
+let gIn = { s: 0, l: false, w: false };
+// guest
+let hostSt = null, hostNick = '', hostSeen = 0, joinedAt = 0, amPlayer = false, lastHostPres = null, lastSnapAt = 0;
+let connAt = 0; // when the link to the server last came up
+let gsim = newSim('wait'), gtmp = newSim('play'), gAcc = 0, gOff = { x: 0, y: 0 }, auth = 0, lastTn = 0;
+let rtt = 120, lastPe = -1, kickSeq = 0, kickP = 0, rmSeq = 0, lastKc = [null, null];
+let lastHit = 0, lastPh = '';
+
+// ================= view transform =================
+let rot = 0, LW = 1, LH = 1, scl = 1, dpr = 1;
+const mySide = () => mode === 'guest' ? 1 : 0;
+function computeRot() {
+  const portrait = stage.clientWidth < 640 && window.innerHeight > window.innerWidth;
+  const s = (mode === 'guest' && amPlayer) ? 1 : 0;
+  if (!portrait) return s ? 180 : 0;
+  return s ? 90 : 270;
+}
+function resize() {
+  rot = computeRot();
+  const bw = W + 2 * F, bh = H + 2 * F + 2 * HM;
+  [LW, LH] = rot % 180 === 0 ? [bw, bh] : [bh, bw];
+  const availW = stage.clientWidth || 360;
+  const availH = Math.max(280, window.innerHeight * (rot % 180 === 0 ? 0.7 : 0.72));
+  scl = Math.min(availW / LW, availH / LH);
+  dpr = Math.min(2, window.devicePixelRatio || 1);
+  cv.style.width = Math.round(LW * scl) + 'px';
+  cv.style.height = Math.round(LH * scl) + 'px';
+  cv.width = Math.round(LW * scl * dpr); cv.height = Math.round(LH * scl * dpr);
+}
+try { new ResizeObserver(() => resize()).observe(stage); } catch (e) {}
+window.addEventListener('resize', resize);
+function toField(cx, cy) {
+  const r = cv.getBoundingClientRect();
+  const lx = (cx - r.left) / scl - LW / 2, ly = (cy - r.top) / scl - LH / 2;
+  const th = -rot * Math.PI / 180, c = Math.cos(th), s = Math.sin(th);
+  return { x: lx * c - ly * s + W / 2, y: lx * s + ly * c + H / 2 };
+}
+const sFromY = fy => clamp((fy - H / 2) / (H / 2 - 70), -1, 1);
+
+// ================= input =================
+const playing = () => mode !== 'demo';
+const canControl = side => playing() && (mode !== 'guest' || (amPlayer && side === 1));
+function kickDown(side) {
+  ensureAudio();
+  if (!canControl(side) || ctl[side].wind) return;
+  ctl[side].wind = true; windT[side] = performance.now();
+}
+function kickUp(side) {
+  if (!ctl[side].wind) return;
+  ctl[side].wind = false;
+  release(side, powerOf((performance.now() - windT[side]) / 1000));
+}
+function release(side, p) {
+  if (!canControl(side)) return;
+  if (mode === 'guest') {
+    const sd = gsim.sd[1]; sd.rel = p; sd.wind = false;
+    kickSeq++; kickP = r1(p); dirty = true;
+  } else { sim.sd[side].rel = p; sim.sd[side].wind = false; }
+}
+const keys = new Set();
+const UP = ['KeyW', 'ArrowUp'], DOWN = ['KeyS', 'ArrowDown'], LEFT = ['KeyA', 'ArrowLeft'], RIGHT = ['KeyD', 'ArrowRight'];
+function keySide(c) {
+  if (mode !== 'local') return mySide();
+  return ['KeyW', 'KeyS', 'KeyA', 'KeyD', 'Space', 'KeyF', 'KeyG', 'ShiftLeft'].includes(c) ? 0 : 1;
+}
+const isKick = c => mode === 'local' ? ['Space', 'KeyF', 'Enter', 'NumpadEnter', 'KeyL'].includes(c) : ['Space', 'KeyJ', 'Enter'].includes(c);
+const isLift = c => ['KeyG', 'ShiftLeft', 'KeyK', 'ShiftRight'].includes(c) && (mode === 'local' || c !== 'KeyG');
+window.addEventListener('keydown', e => {
+  if (!playing()) return;
+  const t = e.target; if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+  const c = e.code;
+  const game = [...UP, ...DOWN, ...LEFT, ...RIGHT].includes(c) || isKick(c) || isLift(c);
+  if (!game) return;
+  if (t && t.tagName === 'BUTTON' && (c === 'Space' || c === 'Enter')) return;
+  e.preventDefault();
+  if (e.repeat) return;
+  keys.add(c);
+  if (isKick(c)) kickDown(keySide(c));
+  if (isLift(c)) ctl[keySide(c)].lift = true;
+});
+window.addEventListener('keyup', e => {
+  if (!keys.has(e.code)) return;
+  keys.delete(e.code);
+  const sd = keySide(e.code);
+  if (isKick(e.code) && ![...keys].some(k => isKick(k) && keySide(k) === sd)) kickUp(sd);
+  if (isLift(e.code)) ctl[sd].lift = [...keys].some(k => isLift(k) && keySide(k) === sd);
+});
+function dropInputs() { keys.clear(); for (const c of ctl) { c.lift = false; c.wind = false; } }
+window.addEventListener('blur', dropInputs);
+function applyKeys(dt) {
+  const th = rot * Math.PI / 180, c = Math.cos(th), s = Math.sin(th);
+  const v = [0, 0];
+  for (const k of keys) {
+    const sd = keySide(k);
+    if (UP.includes(k)) v[sd] += -c; if (DOWN.includes(k)) v[sd] += c;
+    if (LEFT.includes(k)) v[sd] += s; if (RIGHT.includes(k)) v[sd] += -s;
+  }
+  for (let i = 0; i < 2; i++) if (v[i]) ctl[i].s = clamp(ctl[i].s + clamp(v[i], -1, 1) * 2.4 * dt, -1, 1);
+}
+const touches = new Map();
+cv.addEventListener('contextmenu', e => { if (playing()) e.preventDefault(); });
+cv.addEventListener('pointerdown', e => {
+  if (!playing()) return;
+  ensureAudio();
+  const p = toField(e.clientX, e.clientY);
+  if (e.pointerType === 'mouse') {
+    if (e.button === 0) kickDown(mySide());
+    if (e.button === 2) ctl[mySide()].lift = true;
+    return;
+  }
+  const side = mode === 'local' ? (p.x < W / 2 ? 0 : 1) : mySide();
+  touches.set(e.pointerId, { side, t: performance.now(), x: e.clientX, y: e.clientY, moved: false });
+  try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+  ctl[side].s = sFromY(p.y);
+});
+cv.addEventListener('pointermove', e => {
+  if (!playing()) return;
+  const p = toField(e.clientX, e.clientY);
+  if (e.pointerType === 'mouse') { ctl[mySide()].s = sFromY(p.y); return; }
+  const t = touches.get(e.pointerId); if (!t) return;
+  if (Math.hypot(e.clientX - t.x, e.clientY - t.y) > 12) t.moved = true;
+  ctl[t.side].s = sFromY(p.y);
+});
+window.addEventListener('pointerup', e => {
+  if (e.pointerType === 'mouse' && playing()) {
+    if (e.button === 0) kickUp(mySide());
+    if (e.button === 2) ctl[mySide()].lift = false;
+  }
+});
+function endTouch(e) {
+  if (e.pointerType === 'mouse') return;
+  const t = touches.get(e.pointerId); if (!t) return;
+  touches.delete(e.pointerId);
+  const dur = (performance.now() - t.t) / 1000;
+  if (e.type === 'pointerup' && !t.moved && dur < 0.22) release(t.side, powerOf(dur));
+}
+cv.addEventListener('pointerup', endTouch);
+cv.addEventListener('pointercancel', endTouch);
+const tKick = $('tKick'), tLift = $('tLift');
+tKick.addEventListener('pointerdown', e => { e.preventDefault(); kickDown(mySide()); tKick.classList.add('held'); try { tKick.setPointerCapture(e.pointerId); } catch (err) {} });
+const kickOff = () => { tKick.classList.remove('held'); kickUp(mySide()); };
+tKick.addEventListener('pointerup', kickOff); tKick.addEventListener('pointercancel', kickOff);
+tLift.addEventListener('pointerdown', e => { e.preventDefault(); ctl[mySide()].lift = true; tLift.classList.add('held'); try { tLift.setPointerCapture(e.pointerId); } catch (err) {} });
+const unlift = () => { ctl[mySide()].lift = false; tLift.classList.remove('held'); };
+tLift.addEventListener('pointerup', unlift); tLift.addEventListener('pointercancel', unlift);
+
+// ================= sound =================
+let ac = null, soundOn = true;
+function ensureAudio() {
+  if (!ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { ac = null; } }
+  if (ac && ac.state === 'suspended') ac.resume().catch(() => {});
+}
+function knock(v) {
+  if (!ac || !soundOn || mode === 'demo' || document.hidden) return;
+  const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
+  o.type = 'triangle';
+  o.frequency.setValueAtTime(180 + Math.min(v, 2400) * 0.12, t);
+  o.frequency.exponentialRampToValueAtTime(70, t + 0.07);
+  g.gain.setValueAtTime(clamp(v / 3200, 0.04, 0.32), t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+  o.connect(g).connect(ac.destination); o.start(t); o.stop(t + 0.1);
+}
+function cheer() {
+  if (!ac || !soundOn || mode === 'demo') return;
+  const t = ac.currentTime;
+  [523, 659, 784].forEach((f, i) => {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = 'square'; o.frequency.value = f;
+    g.gain.setValueAtTime(0.0001, t + i * 0.09); g.gain.exponentialRampToValueAtTime(0.09, t + i * 0.09 + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.09 + 0.22);
+    o.connect(g).connect(ac.destination); o.start(t + i * 0.09); o.stop(t + i * 0.09 + 0.25);
+  });
+}
+$('btnSound').addEventListener('click', () => { soundOn = !soundOn; ensureAudio(); $('btnSound').textContent = '音效：' + (soundOn ? '开' : '关'); });
+
+// ================= online room =================
+const netChip = $('netChip'), netText = $('netText');
+function setNet(state, text) { netChip.className = 'chip ' + state; netText.textContent = text; }
+const canOnline = () => !!room && connected && !!myPeer;
+function refreshLobbyButtons() { $('btnHost').disabled = !canOnline(); $('btnJoin').disabled = !canOnline(); }
+let lobbyDirty = true;
+// Connection to our own relay server (server.js, path /ws). It exposes the small interface the game uses:
+// presence(obj) publishes my state; onPeers gives everyone's latest state; onConnection reports the link.
+// Each tab keeps one random id for its whole life, so a reconnect is still "the same player" to the host.
+function connectRelay() {
+  const url = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws';
+  const hex = n => { const a = new Uint8Array(n); (window.crypto || {}).getRandomValues ? crypto.getRandomValues(a) : a.forEach((_, i) => a[i] = Math.random() * 256); return Array.from(a, b => b.toString(16).padStart(2, '0')).join(''); };
+  const myId = hex(8);
+  let ws = null, open = false, myPres = {}, retry = 0, lastMsg = 0;
+  const others = new Map(), peerL = [], connL = [];
+  const meObj = () => Object.freeze({ peer: myId, sameTab: true, isMe: true, presence: myPres, updatedAt: performance.now() });
+  let snap = Object.freeze([meObj()]);
+  const peerObj = (id, p) => Object.freeze({ peer: id, sameTab: false, isMe: false, presence: Object.freeze(p), updatedAt: performance.now() });
+  function emitPeers() { snap = Object.freeze([meObj(), ...others.values()]); for (const f of peerL) { try { f({ peers: snap }); } catch (e) { console.error(e); } } }
+  function setConn(c) { if (open === c) return; open = c; for (const f of connL) { try { f(c); } catch (e) { console.error(e); } } }
+  function send(o) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(o)); }
+  function schedule() { setTimeout(connect, Math.min(2000, 300 * Math.pow(2, retry++))); }
+  function connect() {
+    try { ws = new WebSocket(url); } catch (e) { schedule(); return; }
+    const me = ws;
+    ws.onopen = () => { retry = 0; lastMsg = performance.now(); send({ t: 'hi', id: myId }); send({ t: 'p', p: myPres }); };
+    ws.onmessage = ev => {
+      if (me !== ws) return;
+      lastMsg = performance.now();
+      let m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+      if (!m || typeof m !== 'object') return;
+      if (m.t === 'hello') setConn(true);
+      else if (m.t === 'sync') {
+        others.clear();
+        for (const x of Array.isArray(m.peers) ? m.peers : []) if (x && typeof x.id === 'string' && x.id !== myId && x.p && typeof x.p === 'object') others.set(x.id, peerObj(x.id, x.p));
+        emitPeers();
+      } else if (m.t === 'p' && typeof m.id === 'string' && m.id !== myId && m.p && typeof m.p === 'object') { others.set(m.id, peerObj(m.id, m.p)); emitPeers(); }
+      else if (m.t === 'leave' && typeof m.id === 'string') { if (others.delete(m.id)) emitPeers(); }
+    };
+    ws.onclose = () => { if (me !== ws) return; ws = null; setConn(false); others.clear(); emitPeers(); schedule(); };
+    ws.onerror = () => { try { me.close(); } catch (e) {} };
+  }
+  // the server says something at least every 10 s; silence for 25 s means the link is dead (e.g. a phone changed networks)
+  setInterval(() => { if (ws && ws.readyState === 1 && performance.now() - lastMsg > 25000) { try { ws.close(); } catch (e) {} } }, 5000);
+  connect();
+  return {
+    presence(patch) {
+      const merged = Object.assign({}, myPres);
+      for (const k in patch) { if (patch[k] === null) delete merged[k]; else merged[k] = patch[k]; }
+      myPres = merged; send({ t: 'p', p: myPres });
+      return Promise.resolve();
+    },
+    onPeers(f) { peerL.push(f); setTimeout(() => f({ peers: snap }), 0); return () => { const i = peerL.indexOf(f); if (i >= 0) peerL.splice(i, 1); }; },
+    onConnection(f) { connL.push(f); setTimeout(() => f(open), 0); return () => { const i = connL.indexOf(f); if (i >= 0) connL.splice(i, 1); }; },
+    peers: () => snap,
+    connected: () => open
+  };
+}
+room = connectRelay();
+room.onPeers(ch => {
+  peers = ch.peers;
+  const me = peers.find(p => p.sameTab);
+  if (me) myPeer = me.peer;
+  lobbyDirty = true;
+});
+room.onConnection(c => {
+  connected = c;
+  if (!c && !discSince) discSince = performance.now();
+  if (c) { discSince = 0; dirty = true; connAt = performance.now(); }
+  lobbyDirty = true;
+});
+function flushPresence(now) {
+  if (!room || !dirty || now - lastPres < 40) return;
+  dirty = false; lastPres = now;
+  room.presence(pres).catch(() => {});
+}
+function renderLobby() {
+  lobbyDirty = false;
+  if (!room) return;
+  const n = peers.length;
+  if (connected) setNet('on', n > 1 ? `联机已连接 · 这里有 ${n} 人` : '联机已连接 · 只有你在这里');
+  else setNet('off', '正在连接联机服务器…');
+  refreshLobbyButtons();
+  if (mode !== 'demo') return;
+  const seen = new Set(), rows = [];
+  for (const p of peers) {
+    const pr = p.presence || {};
+    if (p.sameTab || pr.role !== 'host' || typeof pr.code !== 'string' || !CODE_RE.test(pr.code) || seen.has(pr.code)) continue;
+    seen.add(pr.code);
+    const st = pr.st && typeof pr.st === 'object' ? pr.st : {};
+    const busy = typeof st.g === 'string' && st.g;
+    const row = document.createElement('div'); row.className = 'roomrow';
+    const c = document.createElement('span'); c.className = 'rc'; c.textContent = pr.code;
+    const nm = document.createElement('span'); nm.className = 'rn';
+    nm.textContent = busy ? `${str(pr.nick) || '球友'} 对 ${str(st.gn) || '球友'} · 比赛中` : `${str(pr.nick) || '球友'} 在等对手`;
+    const bt = document.createElement('button'); bt.type = 'button';
+    bt.textContent = busy ? '观战' : '加入';
+    if (!busy) bt.className = 'primary';
+    bt.addEventListener('click', () => joinRoom(pr.code));
+    row.append(c, nm, bt); rows.push(row);
+  }
+  if (!rows.length) {
+    const e = document.createElement('div'); e.className = 'empty';
+    e.textContent = connected ? '现在没有开着的房间。开一个，然后让朋友打开这个页面。' : '正在连接…';
+    rows.push(e);
+  }
+  $('roomList').replaceChildren(...rows);
+}
+function newCode() {
+  const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const used = new Set(peers.map(p => p.presence && p.presence.code));
+  let c;
+  do { c = Array.from({ length: 4 }, () => A[Math.floor(Math.random() * A.length)]).join(''); } while (used.has(c));
+  return c;
+}
+$('btnHost').addEventListener('click', () => {
+  if (!canOnline()) return;
+  ensureAudio();
+  code = newCode();
+  guestPeer = null; guestNick = ''; lastGP = null; sim = newSim('wait'); hCount = 0;
+  pres = { nick, code, role: 'host', st: null, inp: null }; dirty = true;
+  enterGame('host');
+});
+$('joinForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const c = $('codeIn').value.trim().toUpperCase();
+  if (!CODE_RE.test(c)) { $('codeIn').focus(); return; }
+  joinRoom(c);
+});
+function joinRoom(c) {
+  if (!canOnline() || !CODE_RE.test(c)) return;
+  ensureAudio();
+  code = c; hostSt = null; lastHostPres = null; hostSeen = 0; joinedAt = performance.now(); amPlayer = false;
+  gsim = newSim('wait'); gOff.x = gOff.y = 0; auth = 0; lastTn = 0; lastKc = [null, null]; lastPe = -1; rtt = 120;
+  kickSeq = 0; kickP = 0; rmSeq = 0;
+  pres = { nick, code, role: 'guest', st: null, inp: { s: 0, l: 0, w: 0, k: 0, kp: 0, pg: 0, rt: 120, rm: 0 } }; dirty = true;
+  enterGame('guest');
+}
+$('btnCpu').addEventListener('click', () => { ensureAudio(); sim = newSim(); ais = [null, makeAI(level)]; enterGame('cpu'); });
+$('btnLocal').addEventListener('click', () => { ensureAudio(); sim = newSim(); enterGame('local'); });
+$('btnLeave').addEventListener('click', leaveGame);
+$('btnRematch').addEventListener('click', rematch);
+function rematch() {
+  ensureAudio();
+  if (mode === 'guest') { rmSeq++; dirty = true; return; }
+  if (mode === 'host' && !guestPeer) return;
+  sim = newSim(); sim.pt = 1.2; hCount = 0;
+}
+function enterGame(m) {
+  mode = m;
+  ctl[0].s = ctl[1].s = 0; dropInputs();
+  $('lobby').hidden = true; $('ingame').hidden = false; $('demoTag').hidden = true;
+  $('touchbar').hidden = !(coarse && m !== 'local');
+  $('ping').hidden = m !== 'guest';
+  cv.classList.add('play');
+  lastPh = ''; lastHit = 0; ovKey = null; acc = 0; gAcc = 0; dispOff.x = dispOff.y = 0;
+  resize(); updateHelp(); syncTicker();
+  try { cv.focus({ preventScroll: true }); } catch (e) {}
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function leaveGame() {
+  if (mode === 'host' || mode === 'guest') { pres = { nick, code: null, role: null, st: null, inp: null }; dirty = true; }
+  mode = 'demo'; code = null; guestPeer = null; amPlayer = false;
+  sim = newSim(); ais = [makeAI('demo'), makeAI('demo')];
+  $('lobby').hidden = false; $('ingame').hidden = true; $('demoTag').hidden = false; $('touchbar').hidden = true; $('ping').hidden = true;
+  cv.classList.remove('play'); ovKey = null; lobbyDirty = true;
+  resize(); syncTicker();
+}
+function updateHelp() {
+  let t;
+  if (mode === 'local') t = '<b>红队</b>：<kbd>W</kbd>/<kbd>S</kbd> 移动，按住 <kbd>空格</kbd> 或 <kbd>F</kbd> 蓄力、松开射门，<kbd>G</kbd> 抬杆。<b>蓝队</b>：<kbd>↑</kbd>/<kbd>↓</kbd> 移动，按住 <kbd>回车</kbd> 或 <kbd>L</kbd> 蓄力、松开射门，<kbd>K</kbd> 抬杆。';
+  else if (coarse) t = '在球桌上<b>拖动</b>移动所有杆子，<b>轻点</b>是轻射。按住「蓄力」时球员后仰，能把球压在脚下带着横移，松开就射。按住「抬杆」让球从脚下过去。';
+  else t = '鼠标上下移动控制所有杆子。<b>按住左键蓄力</b>（球员后仰，能压住球带着横移），<b>松开射门</b>，按得越久越有力。按住<b>右键</b>抬杆。键盘：<kbd>W</kbd>/<kbd>S</kbd> 移动，<kbd>空格</kbd> 蓄力射门，<kbd>Shift</kbd> 抬杆。';
+  if (mode === 'guest' && hostSt && !amPlayer) t = '房间已满，你在<b>观战</b>。有人离开后会自动轮到你上场。';
+  $('help').innerHTML = t;
+}
+
+// ================= host =================
+function recordAndStep() {
+  copySim(hist[hPos], sim); hPos = (hPos + 1) % HN; if (hCount < HN) hCount++;
+  stepSim(sim, DT);
+}
+function setBlue(side, g) { side.s = g.s; side.lift = g.l; side.wind = g.w; }
+// The guest acted `lagSec` ago on its screen. Re-run the last `lagSec` of the match with the guest's new input in place.
+function applyGuest(g, rel, lagSec) {
+  const back = Math.min(hCount, Math.round(lagSec / DT));
+  if (back <= 0) { setBlue(sim.sd[1], g); if (rel) sim.sd[1].rel = rel; return; }
+  const ox = sim.b.x, oy = sim.b.y, oph = sim.ph;
+  let idx = (hPos - back + HN) % HN;
+  copySim(sim, hist[idx]);
+  for (let j = 0; j < back; j++) {
+    const rec = hist[idx];
+    if (j > 0) { const r = rec.sd[0], s0 = sim.sd[0]; s0.s = r.s; s0.lift = r.lift; s0.wind = r.wind; s0.rel = r.rel; }
+    setBlue(sim.sd[1], g);
+    if (j === 0 && rel) sim.sd[1].rel = rel;
+    copySim(rec, sim);
+    stepSim(sim, DT);
+    idx = (idx + 1) % HN;
+  }
+  if (oph === 'play' && sim.ph === 'play') { dispOff.x += ox - sim.b.x; dispOff.y += oy - sim.b.y; }
+}
+function hostTick(now) {
+  const cands = peers.filter(p => !p.sameTab && p.presence && p.presence.role === 'guest' && p.presence.code === code);
+  if (guestPeer) {
+    const gp = cands.find(p => p.peer === guestPeer);
+    if (gp) {
+      guestSeen = now;
+      if (gp.presence !== lastGP) {
+        lastGP = gp.presence;
+        const inp = gp.presence.inp && typeof gp.presence.inp === 'object' ? gp.presence.inp : {};
+        guestNick = str(gp.presence.nick) || '球友';
+        guestPing = num(inp.pg, 0); guestRtt = num(inp.rt, 120, 0, 2000);
+        const g = { s: num(inp.s, 0, -1, 1), l: !!inp.l, w: !!inp.w };
+        const k = num(inp.k, 0);
+        let rel = 0;
+        if (k > lastGK) { lastGK = k; rel = clamp(num(inp.kp, PW_MIN), PW_MIN, PW_MAX); }
+        const changed = rel || g.s !== gIn.s || g.l !== gIn.l || g.w !== gIn.w;
+        gIn = g;
+        if (changed) applyGuest(g, rel, clamp(guestRtt / 2, 0, 160) / 1000);
+        const rm = num(inp.rm, 0);
+        if (rm > lastGRm) { lastGRm = rm; if (sim.ph === 'over') { sim = newSim(); sim.pt = 1.2; hCount = 0; } }
+      }
+    } else if (!connected || now - connAt < 4000) {
+      guestSeen = now; // we are the ones who dropped: give the guest time to come back before giving the seat away
+    } else if (now - guestSeen > 2500) {
+      guestPeer = null; guestNick = ''; lastGP = null; sim = newSim('wait'); hCount = 0;
+    }
+  } else if (cands.length) {
+    const gp = cands[0];
+    const inp = gp.presence.inp && typeof gp.presence.inp === 'object' ? gp.presence.inp : {};
+    guestPeer = gp.peer; guestNick = str(gp.presence.nick) || '球友'; guestSeen = now; lastGP = null;
+    lastGK = num(inp.k, 0); lastGRm = num(inp.rm, 0); gIn = { s: 0, l: false, w: false };
+    sim = newSim(); sim.pt = 1.6; hCount = 0;
+  }
+}
+const sideMsg = st => [r3(st.s), st.lift ? 1 : 0, st.wind ? 1 : 0, st.kc, r1(st.kp)];
+function hostPublish() {
+  const b = sim.b;
+  pres.st = {
+    n: ++stN, b: [r1(b.x), r1(b.y), Math.round(b.vx), Math.round(b.vy)],
+    sd: [sideMsg(sim.sd[0]), sideMsg(sim.sd[1])],
+    sc: [sim.sc[0], sim.sc[1]], ph: sim.ph, w: sim.win, last: sim.last,
+    g: guestPeer, gn: guestNick, pe: guestPing
+  };
+  dirty = true;
+}
+
+// ================= guest =================
+function driveRemote(side, m, i) {
+  if (!Array.isArray(m)) return;
+  side.s = num(m[0], 0, -1, 1); side.lift = !!m[1]; side.wind = !!m[2];
+  const kc = num(m[3], 0);
+  if (lastKc[i] === null) lastKc[i] = kc;
+  else if (kc > lastKc[i]) { lastKc[i] = kc; side.rel = clamp(num(m[4], PW_MIN), PW_MIN, PW_MAX); }
+}
+function parseBall(st) {
+  const b = Array.isArray(st.b) ? st.b : [];
+  return { x: num(b[0], W / 2, -F, W + F), y: num(b[1], H / 2, 0, H), vx: num(b[2], 0, -VMAX, VMAX), vy: num(b[3], 0, -VMAX, VMAX) };
+}
+function onSnapshot(st, now) {
+  const pe = num(st.pe, -1);
+  if (pe > 0 && pe !== lastPe) { lastPe = pe; const smp = now - pe; if (smp >= 0 && smp < 3000) rtt = rtt * 0.8 + smp * 0.2; }
+  const ph = typeof st.ph === 'string' ? st.ph : 'wait';
+  const nb = parseBall(st);
+  if (ph !== 'play' || gsim.ph !== 'play') {
+    gsim.ph = ph; Object.assign(gsim.b, nb); gOff.x = gOff.y = 0; return;
+  }
+  if (auth > 0) return; // our own touch is still on its way to the host: trust the local ball until it lands
+  // the snapshot is about one-way-latency old: roll it forward against the table and the rods as we see them now
+  copySim(gtmp, gsim); Object.assign(gtmp.b, nb);
+  const steps = Math.round(clamp(rtt / 2, 0, 200) / 1000 / DT);
+  for (let i = 0; i < steps; i++) if (stepBall(gtmp, DT, true) >= 0) break;
+  gOff.x += gsim.b.x - gtmp.b.x; gOff.y += gsim.b.y - gtmp.b.y;
+  if (Math.hypot(gOff.x, gOff.y) > 150) gOff.x = gOff.y = 0;
+  Object.assign(gsim.b, gtmp.b);
+}
+function guestTick(now, dt) {
+  const hp = peers.find(p => !p.sameTab && p.presence && p.presence.role === 'host' && p.presence.code === code);
+  if (hp && hp.presence.st && typeof hp.presence.st === 'object') {
+    if (!hostSt) setTimeout(updateHelp, 0);
+    hostSeen = now; hostNick = str(hp.presence.nick) || '球友';
+    if (hp.presence !== lastHostPres) { lastHostPres = hp.presence; hostSt = hp.presence.st; lastSnapAt = now; onSnapshot(hostSt, now); }
+  }
+  const wasPlayer = amPlayer;
+  amPlayer = !!(hostSt && typeof hostSt.g === 'string' && hostSt.g === myPeer && now - hostSeen < 3000);
+  if (wasPlayer !== amPlayer) { resize(); updateHelp(); lastKc[1] = null; if (!amPlayer) ctl[1].wind = false; }
+  const sds = hostSt && Array.isArray(hostSt.sd) ? hostSt.sd : [];
+  driveRemote(gsim.sd[0], sds[0], 0);
+  if (amPlayer) { const me = gsim.sd[1]; me.s = ctl[1].s; me.lift = ctl[1].lift; me.wind = ctl[1].wind; }
+  else driveRemote(gsim.sd[1], sds[1], 1);
+  gAcc += dt;
+  let n = 0;
+  while (gAcc >= DT && n < 240) {
+    stepSide(gsim.sd[0], DT); stepSide(gsim.sd[1], DT);
+    // no word from the host for a moment: hold the ball rather than guess
+    if (gsim.ph === 'play' && now - lastSnapAt < 400 && stepBall(gsim, DT, false) >= 0) { gsim.b.vx *= 0.2; gsim.b.vy *= 0.2; } // the host decides goals
+    gAcc -= DT; n++;
+  }
+  if (amPlayer && gsim.tn[1] !== lastTn) auth = rtt / 1000 + 0.08;
+  lastTn = gsim.tn[1];
+  auth -= dt;
+  const k = Math.exp(-dt / 0.09); gOff.x *= k; gOff.y *= k;
+  pres.inp = { s: r3(ctl[1].s), l: ctl[1].lift ? 1 : 0, w: ctl[1].wind ? 1 : 0, k: kickSeq, kp: kickP, pg: Math.round(now), rt: Math.round(rtt), rm: rmSeq };
+  dirty = true;
+}
+
+// ================= drawing =================
+function roundRect(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+function drawTable() {
+  const g = ctx.createLinearGradient(0, -F - HM, 0, H + F + HM);
+  g.addColorStop(0, '#8a5530'); g.addColorStop(.5, '#6c3f1f'); g.addColorStop(1, '#552f15');
+  roundRect(-F, -F, W + 2 * F, H + 2 * F, 22); ctx.fillStyle = g; ctx.fill();
+  ctx.strokeStyle = 'rgba(255,220,170,.18)'; ctx.lineWidth = 2; ctx.stroke();
+  roundRect(-F + 8, -F + 8, W + 2 * F - 16, H + 2 * F - 16, 16); ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = 3; ctx.stroke();
+  ctx.fillStyle = '#140d08';
+  roundRect(-F + 6, H / 2 - GOAL, F - 4, GOAL * 2, 6); ctx.fill();
+  roundRect(W - 2, H / 2 - GOAL, F - 4, GOAL * 2, 6); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,.08)'; ctx.lineWidth = 1;
+  for (let y = H / 2 - GOAL + 8; y < H / 2 + GOAL; y += 10) {
+    ctx.beginPath(); ctx.moveTo(-F + 8, y); ctx.lineTo(0, y); ctx.moveTo(W, y); ctx.lineTo(W + F - 8, y); ctx.stroke();
+  }
+  ctx.fillStyle = '#2d8547'; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = 'rgba(255,255,255,.05)';
+  for (let k = 0; k < 10; k += 2) ctx.fillRect(k * W / 10, 0, W / 10, H);
+  // the dished rim: slightly darker where the table slopes back into play
+  ctx.fillStyle = 'rgba(0,0,0,.10)';
+  ctx.fillRect(0, 0, W, BR + SLOPE_W * .6); ctx.fillRect(0, H - BR - SLOPE_W * .6, W, BR + SLOPE_W * .6);
+  ctx.fillRect(0, 0, BR + SLOPE_W * .6, H / 2 - GOAL); ctx.fillRect(0, H / 2 + GOAL, BR + SLOPE_W * .6, H / 2 - GOAL);
+  ctx.fillRect(W - BR - SLOPE_W * .6, 0, BR + SLOPE_W * .6, H / 2 - GOAL); ctx.fillRect(W - BR - SLOPE_W * .6, H / 2 + GOAL, BR + SLOPE_W * .6, H / 2 - GOAL);
+  const vg = ctx.createRadialGradient(W / 2, H / 2, H * .2, W / 2, H / 2, W * .65);
+  vg.addColorStop(0, 'rgba(255,255,220,.06)'); vg.addColorStop(1, 'rgba(0,0,0,.22)');
+  ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(255,255,255,.78)'; ctx.lineWidth = 3;
+  ctx.strokeRect(1.5, 1.5, W - 3, H - 3);
+  ctx.beginPath(); ctx.moveTo(W / 2, 0); ctx.lineTo(W / 2, H); ctx.stroke();
+  ctx.beginPath(); ctx.arc(W / 2, H / 2, 72, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.beginPath(); ctx.arc(W / 2, H / 2, 4, 0, Math.PI * 2); ctx.fill();
+  for (const [x0, d] of [[0, 1], [W, -1]]) {
+    const bh = GOAL * 2 + 120, sh = GOAL * 2 + 30;
+    ctx.strokeRect(Math.min(x0, x0 + d * 125), H / 2 - bh / 2, 125, bh);
+    ctx.strokeRect(Math.min(x0, x0 + d * 46), H / 2 - sh / 2, 46, sh);
+    ctx.beginPath(); ctx.arc(x0 + d * 95, H / 2, 3.5, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.fillStyle = '#140d08';
+  ctx.beginPath(); ctx.ellipse(W / 2, -F / 2, 16, 9, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(W / 2, H + F / 2, 16, 9, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#e3b04f';
+  for (const px of [0, W]) for (const py of [H / 2 - GOAL, H / 2 + GOAL]) { ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI * 2); ctx.fill(); }
+}
+function drawBall(x, y) {
+  ctx.fillStyle = 'rgba(0,0,0,.32)'; ctx.beginPath(); ctx.ellipse(x + 3, y + 4, BR, BR * .8, 0, 0, Math.PI * 2); ctx.fill();
+  const g = ctx.createRadialGradient(x - 3, y - 3, 1, x, y, BR);
+  g.addColorStop(0, '#ffffff'); g.addColorStop(.7, '#f1ede4'); g.addColorStop(1, '#c9c2b4');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, BR, 0, Math.PI * 2); ctx.fill();
+}
+function drawFig(x, y, a, dir, T) {
+  const sx = Math.sin(a), fx = x + dir * sx * LEG;
+  const lifted = Math.cos(a) < CONTACT_COS;
+  ctx.fillStyle = lifted ? 'rgba(0,0,0,.14)' : 'rgba(0,0,0,.26)';
+  ctx.beginPath(); ctx.ellipse((x + fx) / 2 + 3, y + 4, Math.abs(fx - x) / 2 + 10, 14, 0, 0, Math.PI * 2); ctx.fill();
+  if (Math.abs(fx - x) > 0.5) {
+    ctx.strokeStyle = T.dark; ctx.lineWidth = 12; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(fx, y); ctx.stroke();
+  }
+  ctx.fillStyle = T.dark; ctx.beginPath(); ctx.arc(fx, y, 7.5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = T.col; ctx.beginPath(); ctx.ellipse(x - dir * sx * 4, y, 10, 16, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = T.hi; ctx.beginPath(); ctx.arc(x - dir * sx * 8, y, 7, 0, Math.PI * 2); ctx.fill();
+}
+function drawRods(sides) {
+  for (const rod of RODS) {
+    const st = sides[rod.side], T = TEAM[rod.side];
+    for (let i = 0; i < rod.n; i++) drawFig(rod.x, figY(rod, st.cur, i), st.a, rod.dir, T);
+  }
+  for (const rod of RODS) {
+    const red = rod.side === 0;
+    const y0 = red ? -F + 2 : -F - HM + 4, y1 = red ? H + F + HM - 4 : H + F - 2;
+    const g = ctx.createLinearGradient(rod.x - 3, 0, rod.x + 3, 0);
+    g.addColorStop(0, '#7d858c'); g.addColorStop(.5, '#e8edf0'); g.addColorStop(1, '#6b737a');
+    ctx.fillStyle = g; ctx.fillRect(rod.x - 2.5, y0, 5, y1 - y0);
+    ctx.fillStyle = TEAM[rod.side].dark;
+    const gy = red ? H + F + 4 : -F - HM + 4;
+    roundRect(rod.x - 8, gy, 16, HM - 8, 5); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.15)'; ctx.fillRect(rod.x - 5, gy + 3, 3, HM - 14);
+  }
+}
+// charge meter on the rail in front of whoever is winding up
+function drawMeter(side, frac) {
+  const x0 = side === 0 ? W * 0.08 : W * 0.62, len = W * 0.3;
+  const y = side === 0 ? H + F / 2 - 5 : -F / 2 - 5;
+  roundRect(x0, y, len, 10, 5); ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fill();
+  const w = Math.max(10, len * frac);
+  const fx = side === 0 ? x0 : x0 + len - w; // fills toward the attacking end
+  roundRect(fx, y, w, 10, 5); ctx.fillStyle = frac >= 1 ? '#f6cf7c' : TEAM[side].hi; ctx.fill();
+}
+function draw(view, now) {
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  const k = scl * dpr;
+  ctx.setTransform(k, 0, 0, k, 0, 0);
+  ctx.translate(LW / 2, LH / 2); ctx.rotate(rot * Math.PI / 180); ctx.translate(-W / 2, -H / 2);
+  drawTable();
+  if (view.ball) drawBall(view.ball.x, view.ball.y);
+  drawRods(view.sides);
+  for (let s = 0; s < 2; s++) if (ctl[s].wind && canControl(s)) drawMeter(s, clamp(((now - windT[s]) / 1000 - 0.03) / 0.32, 0, 1));
+}
+
+// ================= HUD =================
+const txt = (el, s) => { if (el.textContent !== s) el.textContent = s; };
+let ovKey = null;
+function setOverlay(key, build) {
+  if (key === ovKey) return;
+  ovKey = key; overlay.replaceChildren();
+  if (build) overlay.append(build());
+}
+function card(cls, title, titleCls, ...kids) {
+  const c = document.createElement('div'); c.className = 'card ' + (cls || '');
+  if (title) { const h = document.createElement('h3'); h.textContent = title; if (titleCls) h.className = titleCls; c.append(h); }
+  c.append(...kids.filter(Boolean)); return c;
+}
+const P = t => { const p = document.createElement('p'); p.textContent = t; return p; };
+const btn = (t, fn, primary) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = t; if (primary) b.className = 'primary'; b.addEventListener('click', fn); return b; };
+function updateHUD(v, now) {
+  const names = ['电脑', '电脑'], you = [false, false];
+  if (mode === 'demo') { names[0] = '演示'; names[1] = '演示'; }
+  if (mode === 'cpu') { names[0] = nick; you[0] = true; names[1] = level === 'hard' ? '电脑 · 老手' : '电脑 · 新手'; }
+  if (mode === 'local') { names[0] = '红队'; names[1] = '蓝队'; }
+  if (mode === 'host') { names[0] = nick; you[0] = true; names[1] = guestPeer ? guestNick : '等待加入…'; }
+  if (mode === 'guest') { names[0] = hostNick || '房主'; names[1] = amPlayer ? nick : (hostSt && str(hostSt.gn)) || '…'; you[1] = amPlayer; }
+  txt($('nmR'), names[0]); txt($('nmB'), names[1]);
+  $('youR').hidden = !you[0]; $('youB').hidden = !you[1];
+  txt($('scR'), String(v.sc[0])); txt($('scB'), String(v.sc[1]));
+  $('board').classList.toggle('flip', rot === 180 || rot === 90);
+  if (mode === 'guest') txt($('ping'), `延迟 ${Math.round(rtt / 2)} ms`);
+  const over = v.ph === 'over';
+  $('btnRematch').hidden = !(over && (mode !== 'guest' || amPlayer) && mode !== 'demo');
+  if (mode === 'demo') return setOverlay(null);
+  if (mode === 'host' && !room) return setOverlay('lost', () => card('', '联机断开了', '', P('和联机服务的连接断了。'), btn('返回大厅', leaveGame, true)));
+  if ((mode === 'host' || mode === 'guest') && discSince && now - discSince > 2500) return setOverlay('disc', () => card('', '网络断开，正在重连…', '', P('连上后会继续。')));
+  if (mode === 'host' && v.ph === 'wait') {
+    return setOverlay('wait' + code, () => {
+      const c = document.createElement('div'); c.className = 'code'; c.textContent = code;
+      const cp = btn('复制房间码', () => {
+        const done = () => { cp.textContent = '已复制'; setTimeout(() => cp.textContent = '复制房间码', 1500); };
+        try { navigator.clipboard.writeText(code).then(done, () => { cp.textContent = code; }); } catch (e) { cp.textContent = code; }
+      });
+      return card('', '等朋友加入', '', c, P('让朋友打开这个页面，在房间列表里点「加入」，或者输入上面的房间码。'), cp);
+    });
+  }
+  if (mode === 'guest' && (!hostSt || now - hostSeen > 3000)) {
+    if (now - joinedAt < 3500 && !hostSt) return setOverlay('finding', () => card('', '正在找房间 ' + code, '', P('稍等一下…')));
+    return setOverlay('nohost', () => card('', '找不到房间 ' + code, '', P('房间码可能输错了，或者房主已经离开。'), btn('返回大厅', leaveGame, true)));
+  }
+  if (v.ph === 'goal') {
+    const s = v.last === 1 ? 1 : 0;
+    return setOverlay('goal' + s + v.sc.join('-'), () => card('goal', TEAM[s].name + '进球！', s ? 'c-blue' : 'c-red'));
+  }
+  if (over) {
+    const s = v.win === 1 ? 1 : 0;
+    const me = mode === 'local' ? -1 : (mode === 'guest' ? (amPlayer ? 1 : -1) : 0);
+    const title = me === -1 ? TEAM[s].name + '赢了' : (me === s ? '你赢了！' : '这局输了');
+    const canRe = mode !== 'guest' || amPlayer;
+    return setOverlay('over' + s + v.sc.join('-') + canRe, () => card('', title, s ? 'c-blue' : 'c-red',
+      P(`比分 ${v.sc[0]} : ${v.sc[1]}`), canRe ? btn('再来一局', rematch, true) : P('等他们开下一局…')));
+  }
+  setOverlay(null);
+}
+
+// ================= main loop =================
+let lastT = performance.now();
+function tick(t, render) {
+  const dt = Math.min(0.1, Math.max(0, (t - lastT) / 1000)); lastT = t;
+  try {
+    applyKeys(dt);
+    let view;
+    if (mode === 'guest') {
+      guestTick(t, dt);
+      const st = hostSt || {};
+      const sc = Array.isArray(st.sc) ? [num(st.sc[0], 0, 0, 99), num(st.sc[1], 0, 0, 99)] : [0, 0];
+      const ball = hostSt ? { x: gsim.b.x + gOff.x, y: gsim.b.y + gOff.y } : null;
+      view = { ball, sides: gsim.sd, sc, ph: typeof st.ph === 'string' ? st.ph : 'wait', win: num(st.w, -1), last: num(st.last, -1) };
+      if (gsim.hit > lastHit) knock(gsim.hitE);
+      lastHit = gsim.hit;
+    } else {
+      if (mode === 'host') hostTick(t);
+      // host lost the server with a guest on the table: pause the match instead of playing on alone
+      const paused = mode === 'host' && guestPeer && !connected;
+      if (paused) acc = 0;
+      if (mode === 'demo') { aiStep(ais[0], sim, 0, dt); aiStep(ais[1], sim, 1, dt); }
+      else {
+        const s0 = sim.sd[0]; s0.s = ctl[0].s; s0.lift = ctl[0].lift; s0.wind = ctl[0].wind;
+        if (mode === 'cpu') aiStep(ais[1], sim, 1, dt);
+        if (mode === 'local') { const s1 = sim.sd[1]; s1.s = ctl[1].s; s1.lift = ctl[1].lift; s1.wind = ctl[1].wind; }
+      }
+      if (!paused) acc += dt;
+      let n = 0;
+      while (acc >= DT && n < 240) { if (mode === 'host') recordAndStep(); else stepSim(sim, DT); acc -= DT; n++; }
+      if (sim.hit > lastHit) knock(sim.hitE);
+      lastHit = sim.hit;
+      if (mode === 'demo' && sim.ph === 'over') { demoRestart += dt; if (demoRestart > 2) { demoRestart = 0; sim = newSim(); } }
+      if (mode === 'host') hostPublish();
+      const k = Math.exp(-dt / 0.08); dispOff.x *= k; dispOff.y *= k;
+      if (sim.ph !== 'play' || Math.hypot(dispOff.x, dispOff.y) > 150) dispOff.x = dispOff.y = 0;
+      const ball = sim.ph === 'wait' ? null : { x: sim.b.x + dispOff.x, y: sim.b.y + dispOff.y };
+      view = { ball, sides: sim.sd, sc: sim.sc, ph: sim.ph, win: sim.win, last: sim.last };
+    }
+    if (view.ph !== lastPh) { if (view.ph === 'goal') cheer(); lastPh = view.ph; }
+    if (render) { draw(view, t); updateHUD(view, t); }
+    if (lobbyDirty) renderLobby();
+    flushPresence(t);
+  } catch (err) { console.error(err); }
+}
+function frame(t) { tick(t, true); requestAnimationFrame(frame); }
+
+// A hidden tab stops animation frames. During an online match a worker keeps the game ticking in the background.
+let ticker = null;
+function syncTicker() {
+  const want = document.hidden && (mode === 'host' || mode === 'guest');
+  if (want && !ticker) {
+    try {
+      const src = 'let t=null;onmessage=e=>{clearInterval(t);t=null;if(e.data)t=setInterval(()=>postMessage(0),16)}';
+      ticker = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+      ticker.onmessage = () => { if (document.hidden) tick(performance.now(), false); };
+    } catch (e) { ticker = null; }
+  }
+  if (ticker) ticker.postMessage(want);
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) dropInputs(); syncTicker(); });
+
+if (window.__FB_TEST) window.__FB_TEST.api = { newSim, stepSim, stepBall, reachable, RODS, W, H, BR, DT, figY, powerOf, state: () => ({ mode, sim, gsim, rtt, auth, hCount }) };
+resize();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
